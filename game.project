@@ -1,0 +1,12 @@
+[bootstrap]
+main_collection = /main/main.collectionc
+
+[script]
+shared_state = 1
+
+[project]
+title = DiscordRich
+
+[library]
+include_dirs = discordrich
+
