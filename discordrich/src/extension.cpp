@@ -37,13 +37,13 @@ static int update(lua_State *L)
     char buffer[256];
     DiscordRichPresence discordPresence;
     memset(&discordPresence, 0, sizeof(discordPresence));
-    discordPresence.state = "In a Group";
-    sprintf(buffer, "Ranked | Mode: Test");
-    discordPresence.details = buffer;
-    discordPresence.largeImageKey = "test2";
-    discordPresence.smallImageKey = "test";
-    discordPresence.startTimestamp = 1531959948 + 5 * 60;
-    discordPresence.instance = 1;
+    //discordPresence.state = "In a Group";
+    //sprintf(buffer, "Ranked | Mode: Test");
+    //discordPresence.details = buffer;
+    //discordPresence.largeImageKey = "test2";
+    //discordPresence.smallImageKey = "test";
+    //discordPresence.startTimestamp = 1531959948 + 5 * 60;
+    //discordPresence.instance = 1;
 
     Discord_UpdatePresence(&discordPresence);
 
