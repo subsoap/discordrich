@@ -1,5 +1,5 @@
 [bootstrap]
-main_collection = /main/main.collectionc
+main_collection = /example/main.collectionc
 
 [script]
 shared_state = 1
@@ -9,4 +9,7 @@ title = DiscordRich
 
 [library]
 include_dirs = discordrich
+
+[input]
+game_binding = /example/input/game.input_bindingc
 
