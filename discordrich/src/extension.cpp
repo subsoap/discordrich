@@ -1,23 +1,10 @@
-// Extension lib defines
-#define EXTENSION_NAME DiscordRich
-#define LIB_NAME "DiscordRich"
-#define MODULE_NAME "discordrich"
-#define DLIB_LOG_DOMAIN LIB_NAME
-#include <dmsdk/dlib/log.h>
-
-// Defold SDK
-#include <dmsdk/sdk.h>
-
-#if defined(DM_PLATFORM_WINDOWS) || defined(DM_PLATFORM_OSX) || defined(DM_PLATFORM_LINUX)
-#define DISCORD_RPC_SUPPORTED
-#endif
+#include "common.h"
 
 #ifdef DISCORD_RPC_SUPPORTED
 
-#include "discord_rpc.h"
-#include "discord_register.h"
-
 static bool discordInitialized = false;
+
+static int shutdown(lua_State *L);
 
 void handleDiscordReady(const DiscordUser * user)
 {
@@ -32,7 +19,7 @@ void handleDiscordDisconnected(int errcode, const char * message)
 void handleDiscordErrored(int errcode, const char * message)
 {
     dmLogError("Discord: errored (%d: %s)\n", errcode, message);
-    Discord_Shutdown();
+    shutdown(NULL);
 }
 
 void handleDiscordJoinGame(const char * joinSecret)
@@ -52,7 +39,6 @@ void handleDiscordJoinRequest(const DiscordUser* request)
 
 static void saveHandlers(lua_State * L, int index, DiscordEventHandlers * handlers)
 {
-    memset(&handlers, 0, sizeof(handlers));
     handlers->ready = handleDiscordReady;
     handlers->errored = handleDiscordErrored;
     handlers->disconnected = handleDiscordDisconnected;
@@ -60,8 +46,9 @@ static void saveHandlers(lua_State * L, int index, DiscordEventHandlers * handle
     handlers->spectateGame = handleDiscordSpectateGame;
     handlers->joinRequest = handleDiscordJoinRequest;
 
+    if (lua_gettop(L) < index) { return; }
     if (lua_isnil(L, index)) { return; }
-    luaL_checktype(L, 2, LUA_TTABLE);
+    luaL_checktype(L, index, LUA_TTABLE);
     // TODO: register callbacks from Lua
 }
 
@@ -72,24 +59,27 @@ static void freeHandlers()
 
 static int register_(lua_State *L)
 {
+    if (!sym_Discord_Register) { return 0; }
     const char * applicationId = luaL_checkstring(L, 1);
     const char * command = luaL_checkstring(L, 2);
-    Discord_Register(applicationId, command);
+    sym_Discord_Register(applicationId, command);
     return 0;
 }
 
 static int register_steam_game(lua_State *L)
 {
+    if (!sym_Discord_RegisterSteamGame) { return 0; }
     const char * applicationId = luaL_checkstring(L, 1);
     const char * steamId = luaL_checkstring(L, 2);
-    Discord_RegisterSteamGame(applicationId, steamId);
+    sym_Discord_RegisterSteamGame(applicationId, steamId);
     return 0;
 }
 
 static int shutdown(lua_State *L)
 {
     if (!discordInitialized) { return 0; }
-    Discord_Shutdown();
+    if (!sym_Discord_Shutdown) { return 0; }
+    sym_Discord_Shutdown();
     freeHandlers();
     return 0;
 }
@@ -107,6 +97,7 @@ static bool check_boolean(lua_State *L, int index) {
 static int initialize(lua_State *L)
 {
     if (discordInitialized) { shutdown(L); }
+    if (!sym_Discord_Initialize) { return 0; }
 
     int argc = lua_gettop(L);
 
@@ -125,12 +116,14 @@ static int initialize(lua_State *L)
         optionalSteamId = luaL_checkstring(L, 4);
     }
 
-    Discord_Initialize(applicationId, &handlers, autoRegister, optionalSteamId);
+    sym_Discord_Initialize(applicationId, &handlers, autoRegister, optionalSteamId);
     return 0;
 }
 
 static int update_presence(lua_State *L)
 {
+    if (!sym_Discord_UpdatePresence) { return 0; }
+
     DiscordRichPresence presence;
     memset(&presence, 0, sizeof(presence));
 
@@ -166,33 +159,36 @@ static int update_presence(lua_State *L)
     set_string_field("spectate_secret", spectateSecret);
     set_number_field("instance", instance);
 
-    Discord_UpdatePresence(&presence);
+    sym_Discord_UpdatePresence(&presence);
     return 0;
 }
 
 static int clear_presence(lua_State *L)
 {
-    Discord_ClearPresence();
+    if (!sym_Discord_ClearPresence) { return 0; }
+    sym_Discord_ClearPresence();
     return 0;
 }
 
 static int respond(lua_State *L)
 {
+    if (!sym_Discord_Respond) { return 0; }
     const char * userId = luaL_checkstring(L, 1);
     int reply = luaL_checknumber(L, 2);
-    Discord_Respond(userId, reply);
+    sym_Discord_Respond(userId, reply);
     return 0;
 }
 
 static int update_handlers(lua_State *L)
 {
     if (!discordInitialized) { return 0; }
+    if (!sym_Discord_UpdateHandlers) { return 0; }
     freeHandlers();
 
     DiscordEventHandlers handlers;
     saveHandlers(L, 1, &handlers);
 
-    Discord_UpdateHandlers(&handlers);
+    sym_Discord_UpdateHandlers(&handlers);
     return 0;
 }
 
@@ -235,9 +231,8 @@ static dmExtension::Result AppInitializeExtension(dmExtension::AppParams* params
 
 static dmExtension::Result InitializeExtension(dmExtension::Params* params)
 {
-    // Init Lua
+    DiscordRich_openLibrary(params->m_ConfigFile);
     LuaInit(params->m_L);
-    printf("Registered %s Extension\n", MODULE_NAME);
     return dmExtension::RESULT_OK;
 }
 
@@ -249,12 +244,15 @@ static dmExtension::Result AppFinalizeExtension(dmExtension::AppParams* params)
 static dmExtension::Result FinalizeExtension(dmExtension::Params* params)
 {
     shutdown(params->m_L);
+    DiscordRich_closeLibrary();
     return dmExtension::RESULT_OK;
 }
 
 static dmExtension::Result UpdateExtension(dmExtension::Params* params)
 {
-    Discord_RunCallbacks();
+    if (sym_Discord_RunCallbacks) {
+        sym_Discord_RunCallbacks();
+    }
     return dmExtension::RESULT_OK;
 }
 
@@ -284,4 +282,4 @@ static dmExtension::Result FinalizeExtension(dmExtension::Params* params)
 
 #endif
 
-DM_DECLARE_EXTENSION(EXTENSION_NAME, LIB_NAME, AppInitializeExtension, AppFinalizeExtension, InitializeExtension, 0, 0, FinalizeExtension)
+DM_DECLARE_EXTENSION(EXTENSION_NAME, LIB_NAME, AppInitializeExtension, AppFinalizeExtension, InitializeExtension, UpdateExtension, 0, FinalizeExtension)

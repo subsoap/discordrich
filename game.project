@@ -13,3 +13,9 @@ include_dirs = discordrich
 [input]
 game_binding = /example/input/game.input_bindingc
 
+[discordrich]
+lib_path = discordrich/res
+
+[display]
+high_dpi = 1
+
