@@ -4,7 +4,28 @@ local update_presence
 
 function init(self)
 	local DefoldTestAppClientID = "469245900556992512" -- must be a string
-	discordrich.initialize(DefoldTestAppClientID)
+	discordrich.initialize(DefoldTestAppClientID, {
+		ready = function (user)
+			print("discord ready")
+			pprint(user)
+		end,
+		disconnected = function (errcode, message)
+			print("discord disconnected: " .. errcode .. ": " .. message)
+		end,
+		errored = function (errcode, message)
+			print("discord errored: " .. errcode .. ": " .. message)
+		end,
+		join_game = function (join_secret)
+			print("discord join game: ", join_secret)
+		end,
+		spectate_game = function (spectate_secret)
+			print("discord spectate game: ", spectate_secret)
+		end,
+		join_request = function (request)
+			print("discord join request")
+			pprint(request)
+		end,
+	})
 	update_presence(self, "Idling around");
 
 	msg.post(".", "acquire_input_focus")

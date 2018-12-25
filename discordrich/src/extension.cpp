@@ -6,35 +6,159 @@ static bool discordInitialized = false;
 
 static int shutdown(lua_State *L);
 
-void handleDiscordReady(const DiscordUser * user)
+struct LuaCallbackInfo {
+    LuaCallbackInfo() : m_L(0), m_Callback(LUA_NOREF), m_Self(LUA_NOREF) {}
+    lua_State *m_L;
+    int m_Callback;
+    int m_Self;
+};
+
+static struct {
+    LuaCallbackInfo ready;
+    LuaCallbackInfo disconnected;
+    LuaCallbackInfo errored;
+    LuaCallbackInfo joinGame;
+    LuaCallbackInfo spectateGame;
+    LuaCallbackInfo joinRequest;
+} callbacks;
+
+static void clearCallback(LuaCallbackInfo * cbk)
 {
-    dmLogInfo("Discord: ready (%s#%s)\n", user->username, user->discriminator);
+    if (cbk->m_Callback != LUA_NOREF) {
+        dmScript::Unref(cbk->m_L, LUA_REGISTRYINDEX, cbk->m_Callback);
+        dmScript::Unref(cbk->m_L, LUA_REGISTRYINDEX, cbk->m_Self);
+        cbk->m_Callback = LUA_NOREF;
+    }
 }
 
-void handleDiscordDisconnected(int errcode, const char * message)
+static void setCallback(lua_State * L, int index, LuaCallbackInfo * cbk)
 {
-    dmLogInfo("Discord: disconnected (%d: %s)\n", errcode, message);
+    clearCallback(cbk);
+
+    if (lua_isnil(L, index)) {
+        cbk->m_Callback = LUA_NOREF;
+    } else {
+        luaL_checktype(L, index, LUA_TFUNCTION);
+        lua_pushvalue(L, index);
+        int cb = dmScript::Ref(L, LUA_REGISTRYINDEX);
+
+        cbk->m_L = dmScript::GetMainThread(L);
+        cbk->m_Callback = cb;
+
+        dmScript::GetInstance(L);
+
+        cbk->m_Self = dmScript::Ref(L, LUA_REGISTRYINDEX);
+    }
 }
 
-void handleDiscordErrored(int errcode, const char * message)
+static void callCallback(LuaCallbackInfo * cbk, int nargs)
 {
-    dmLogError("Discord: errored (%d: %s)\n", errcode, message);
-    shutdown(NULL);
+    if (cbk->m_Callback == LUA_NOREF) { return; }
+
+    lua_State * L = cbk->m_L;
+    int top = lua_gettop(L);
+
+    lua_rawgeti(L, LUA_REGISTRYINDEX, cbk->m_Callback);
+
+    // Setup self (the script instance)
+    lua_rawgeti(L, LUA_REGISTRYINDEX, cbk->m_Self);
+    dmScript::SetInstance(L);
+
+    for (int i = 0; i < nargs; i++) {
+        lua_pushvalue(L, -nargs - 1);
+    }
+
+    int ret = lua_pcall(L, nargs, 0, 0);
+    if (ret != 0) {
+        dmLogError("Error running event handler: %s", lua_tostring(L, -1));
+        lua_pop(L, 1);
+    }
+    assert(top == lua_gettop(L));
+
+    lua_pop(L, nargs);
 }
 
-void handleDiscordJoinGame(const char * joinSecret)
+static void pushDiscordUser(lua_State * L, const DiscordUser * user)
 {
-    dmLogInfo("Discord: join game (%s)\n", joinSecret);
+    lua_newtable(L);
+    if (user->userId) {
+        lua_pushstring(L, user->userId);
+        lua_setfield(L, -2, "user_id");
+    }
+    if (user->username) {
+        lua_pushstring(L, user->username);
+        lua_setfield(L, -2, "username");
+    }
+    if (user->discriminator) {
+        lua_pushstring(L, user->discriminator);
+        lua_setfield(L, -2, "discriminator");
+    }
+    if (user->avatar) {
+        lua_pushstring(L, user->avatar);
+        lua_setfield(L, -2, "avatar");
+    }
 }
 
-void handleDiscordSpectateGame(const char* spectateSecret)
+static void handleDiscordReady(const DiscordUser * user)
 {
-    dmLogInfo("Discord: spectate game (%s)\n", spectateSecret);
+    LuaCallbackInfo * cbk = &callbacks.ready;
+    if (cbk->m_Callback == LUA_NOREF) { return; }
+    lua_State * L = cbk->m_L;
+
+    pushDiscordUser(L, user);
+    callCallback(cbk, 1);
 }
 
-void handleDiscordJoinRequest(const DiscordUser* request)
+static void handleDiscordDisconnected(int errcode, const char * message)
 {
-    dmLogInfo("Discord: join request (%s#%s)\n", request->username, request->discriminator);
+    LuaCallbackInfo * cbk = &callbacks.disconnected;
+    if (cbk->m_Callback == LUA_NOREF) { return; }
+    lua_State * L = cbk->m_L;
+
+    lua_pushnumber(L, errcode);
+    lua_pushstring(L, message);
+    callCallback(cbk, 2);
+}
+
+static void handleDiscordErrored(int errcode, const char * message)
+{
+    LuaCallbackInfo * cbk = &callbacks.errored;
+    if (cbk->m_Callback == LUA_NOREF) { return; }
+    lua_State * L = cbk->m_L;
+
+    lua_pushnumber(L, errcode);
+    lua_pushstring(L, message);
+    callCallback(cbk, 2);
+}
+
+static void handleDiscordJoinGame(const char * joinSecret)
+{
+    LuaCallbackInfo * cbk = &callbacks.joinGame;
+    if (cbk->m_Callback == LUA_NOREF) { return; }
+    lua_State * L = cbk->m_L;
+
+    lua_pushstring(L, joinSecret);
+    callCallback(cbk, 1);
+}
+
+static void handleDiscordSpectateGame(const char* spectateSecret)
+{
+    LuaCallbackInfo * cbk = &callbacks.spectateGame;
+    if (cbk->m_Callback == LUA_NOREF) { return; }
+    lua_State * L = cbk->m_L;
+
+    lua_pushstring(L, spectateSecret);
+    callCallback(cbk, 1);
+}
+
+static void handleDiscordJoinRequest(const DiscordUser* request)
+{
+    LuaCallbackInfo * cbk = &callbacks.ready;
+    if (cbk->m_Callback == LUA_NOREF) { return; }
+    lua_State * L = cbk->m_L;
+
+    pushDiscordUser(L, request);
+    callCallback(cbk, 1);
 }
 
 static void saveHandlers(lua_State * L, int index, DiscordEventHandlers * handlers)
@@ -49,12 +173,28 @@ static void saveHandlers(lua_State * L, int index, DiscordEventHandlers * handle
     if (lua_gettop(L) < index) { return; }
     if (lua_isnil(L, index)) { return; }
     luaL_checktype(L, index, LUA_TTABLE);
-    // TODO: register callbacks from Lua
+
+#define saveHandler(tname, fname) \
+    lua_getfield(L, index, tname); \
+    setCallback(L, -1, &callbacks.fname); \
+    lua_pop(L, 1)
+
+    saveHandler("ready", ready);
+    saveHandler("errored", errored);
+    saveHandler("disconnected", disconnected);
+    saveHandler("join_game", joinGame);
+    saveHandler("spectate_game", spectateGame);
+    saveHandler("join_request", joinRequest);
 }
 
 static void freeHandlers()
 {
-    // TODO: unregister callbacks from Lua
+    clearCallback(&callbacks.ready);
+    clearCallback(&callbacks.disconnected);
+    clearCallback(&callbacks.errored);
+    clearCallback(&callbacks.joinGame);
+    clearCallback(&callbacks.spectateGame);
+    clearCallback(&callbacks.joinRequest);
 }
 
 static int register_(lua_State *L)
