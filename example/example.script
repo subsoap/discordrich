@@ -33,7 +33,7 @@ end
 
 function update_presence(self, details)
 	discordrich.update_presence({
-		status = "Pressing buttons",
+		state = "Pressing buttons",
 		details = details,
 	})
 	print("Updated Discord status")
