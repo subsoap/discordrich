@@ -224,17 +224,11 @@ void DiscordRich_openLibrary(dmConfigFile::HConfig appConfig)
 
     #ifdef _WIN32
         #define LIBPREFIX ""
-        #if defined(__x86_64__) || defined(_M_X64)
-            #define LIBPOSTFIX "64"
-        #else
-            #define LIBPOSTFIX ""
-        #endif
         #define libOpen(var, path) \
             var = LoadLibraryA(path); \
             if (!var) { dmLogWarning("LoadLibrary(\"%s\") failed with error code %lu", path, GetLastError()); }
     #else
         #define LIBPREFIX "lib"
-        #define LIBPOSTFIX ""
         #define libOpen(var, path) \
             var = dlopen(path, RTLD_NOW | RTLD_GLOBAL); \
             if (!var) { dmLogWarning("%s", dlerror()); }
@@ -245,7 +239,7 @@ void DiscordRich_openLibrary(dmConfigFile::HConfig appConfig)
     exePath = new char[maxPathLen + 1];
 
     strcpy(exePath, libPath);
-    strncat(exePath, SEP LIBPREFIX "discord-rpc" LIBPOSTFIX "." LIBEXT, maxPathLen);
+    strncat(exePath, SEP LIBPREFIX "discord-rpc." LIBEXT, maxPathLen);
     libOpen(DiscordRich_dlHandle, exePath);
 
     if (mustFreeLibPath) { delete[] libPath; }
