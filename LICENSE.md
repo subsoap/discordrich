@@ -1,4 +1,4 @@
-Discord RPC libraries: Copyright 2017 Discord, Inc.
+Discord RPC libraries: Copyright 2017 Discord, Inc.  
 Defold integration: Copyright 2018 Brian Kramer and Marius Petcu
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
