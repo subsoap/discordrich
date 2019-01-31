@@ -1,6 +1,6 @@
 #include "common.h"
 
-#ifndef DISCORD_RPC_STATIC
+#if defined(DISCORD_RPC_SUPPORTED) && !defined(DISCORD_RPC_STATIC)
 
 #ifndef _WIN32
 #include <dlfcn.h>
