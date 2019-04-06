@@ -3,6 +3,10 @@
 local update_presence
 
 function init(self)
+	if not discordrich then
+		print("DiscordRich is not functioning!")
+		return false
+	end
 	local DefoldTestAppClientID = "469245900556992512" -- must be a string
 	discordrich.initialize(DefoldTestAppClientID, {
 		ready = function (user)
