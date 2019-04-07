@@ -5,10 +5,8 @@
 // https://github.com/subsoap/discordrich/issues/3
 #if defined(DM_PLATFORM_WINDOWS) 
 #include <windows.h>
-#endif
 
 bool CheckIsWin7() {
-    #if defined(DM_PLATFORM_WINDOWS)
     DWORD version = GetVersion();
     DWORD major = (DWORD) (LOBYTE(LOWORD(version)));
     DWORD minor = (DWORD) (HIBYTE(LOWORD(version)));
@@ -16,12 +14,10 @@ bool CheckIsWin7() {
     // https://docs.microsoft.com/en-us/windows/desktop/SysInfo/operating-system-version
     printf("Windows version: Major %ld Minor %ld \n", major, minor);
     return ((major == 6) && (minor == 0)) || ((major == 6) && (minor == 1));
-    #else
     return false;
-    #endif
 }
 static bool IsWin7 = CheckIsWin7();
-
+#endif
 
 static bool discordInitialized = false;
 
@@ -392,7 +388,9 @@ static dmExtension::Result AppInitializeExtension(dmExtension::AppParams* params
 
 static dmExtension::Result InitializeExtension(dmExtension::Params* params)
 {
+    #if defined(DM_PLATFORM_WINDOWS) 
     if (IsWin7) { return dmExtension::RESULT_OK; }
+    #endif
     
     DiscordRich_openLibrary(params->m_ConfigFile);
     LuaInit(params->m_L);
@@ -406,7 +404,9 @@ static dmExtension::Result AppFinalizeExtension(dmExtension::AppParams* params)
 
 static dmExtension::Result FinalizeExtension(dmExtension::Params* params)
 {
+    #if defined(DM_PLATFORM_WINDOWS) 
     if (IsWin7) { return dmExtension::RESULT_OK; }
+    #endif
     
     shutdown(params->m_L);
     DiscordRich_closeLibrary();
@@ -415,7 +415,9 @@ static dmExtension::Result FinalizeExtension(dmExtension::Params* params)
 
 static dmExtension::Result UpdateExtension(dmExtension::Params* params)
 {
+    #if defined(DM_PLATFORM_WINDOWS) 
     if (IsWin7) { return dmExtension::RESULT_OK; }
+    #endif
     
     if (sym_Discord_RunCallbacks) {
         sym_Discord_RunCallbacks();
