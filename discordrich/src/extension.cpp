@@ -3,20 +3,19 @@
 #ifdef DISCORD_RPC_SUPPORTED
 
 // https://github.com/subsoap/discordrich/issues/3
-#if defined(DM_PLATFORM_WINDOWS) 
+#if defined(DM_PLATFORM_WINDOWS)
 #include <windows.h>
 
-bool CheckIsWin7() {
+static bool checkWin7() {
     DWORD version = GetVersion();
     DWORD major = (DWORD) (LOBYTE(LOWORD(version)));
     DWORD minor = (DWORD) (HIBYTE(LOWORD(version)));
 
     // https://docs.microsoft.com/en-us/windows/desktop/SysInfo/operating-system-version
-    printf("Windows version: Major %ld Minor %ld \n", major, minor);
     return ((major == 6) && (minor == 0)) || ((major == 6) && (minor == 1));
     return false;
 }
-static bool IsWin7 = CheckIsWin7();
+static bool isWin7 = checkWin7();
 #endif
 
 static bool discordInitialized = false;
@@ -388,10 +387,10 @@ static dmExtension::Result AppInitializeExtension(dmExtension::AppParams* params
 
 static dmExtension::Result InitializeExtension(dmExtension::Params* params)
 {
-    #if defined(DM_PLATFORM_WINDOWS) 
-    if (IsWin7) { return dmExtension::RESULT_OK; }
+    #if defined(DM_PLATFORM_WINDOWS)
+    if (isWin7) { return dmExtension::RESULT_OK; }
     #endif
-    
+
     DiscordRich_openLibrary(params->m_ConfigFile);
     LuaInit(params->m_L);
     return dmExtension::RESULT_OK;
@@ -404,10 +403,10 @@ static dmExtension::Result AppFinalizeExtension(dmExtension::AppParams* params)
 
 static dmExtension::Result FinalizeExtension(dmExtension::Params* params)
 {
-    #if defined(DM_PLATFORM_WINDOWS) 
-    if (IsWin7) { return dmExtension::RESULT_OK; }
+    #if defined(DM_PLATFORM_WINDOWS)
+    if (isWin7) { return dmExtension::RESULT_OK; }
     #endif
-    
+
     shutdown(params->m_L);
     DiscordRich_closeLibrary();
     return dmExtension::RESULT_OK;
@@ -415,10 +414,10 @@ static dmExtension::Result FinalizeExtension(dmExtension::Params* params)
 
 static dmExtension::Result UpdateExtension(dmExtension::Params* params)
 {
-    #if defined(DM_PLATFORM_WINDOWS) 
-    if (IsWin7) { return dmExtension::RESULT_OK; }
+    #if defined(DM_PLATFORM_WINDOWS)
+    if (isWin7) { return dmExtension::RESULT_OK; }
     #endif
-    
+
     if (sym_Discord_RunCallbacks) {
         sym_Discord_RunCallbacks();
     }
