@@ -5,7 +5,9 @@
 #define EXTENSION_NAME DiscordRich
 #define LIB_NAME "DiscordRich"
 #define MODULE_NAME "discordrich"
+#ifndef DLIB_LOG_DOMAIN
 #define DLIB_LOG_DOMAIN LIB_NAME
+#endif
 #include <dmsdk/dlib/log.h>
 
 // Defold SDK
