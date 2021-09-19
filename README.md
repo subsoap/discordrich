@@ -8,6 +8,7 @@ https://discordapp.com/developers/docs/rich-presence/how-to
 
 The minimum you should do is initialize the module, then call `update_presence()`
 whenever you want to change the user's Defold status.
+This discord_client_id must be set as a string, like: `"8674360155089048561"`
 
 ```lua
 discordrich.initialize(your_discord_client_id)
